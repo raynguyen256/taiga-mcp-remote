@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  taiga-mcp-remote:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - TAIGA_BASE_URL=https://taiga.enosta.com/api/v1
+      - PORT=3000
+      - SESSION_TTL=86400
+      - MCP_SERVER_URL=https://your-domain.com
+      - CORS_ORIGINS=*
+      - TAIGA_CACHE_TTL=300
+      - TAIGA_REQUEST_TIMEOUT=30000
+      - TAIGA_MAX_RETRIES=3
+    restart: unless-stopped
