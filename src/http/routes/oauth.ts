@@ -9,9 +9,7 @@ import {
 export function createOAuthInteractionRouter(provider: TaigaOAuthProvider): Router {
   const router = Router();
 
-  router.use(express.urlencoded({ extended: false }));
-
-  router.post('/authorize/submit', async (req, res) => {
+  router.post('/oauth/authorize/submit', express.urlencoded({ extended: false }), async (req, res) => {
     const { request_id, username, password } = req.body as {
       request_id?: string;
       username?: string;

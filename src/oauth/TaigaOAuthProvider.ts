@@ -25,7 +25,7 @@ import {
   loginToTaiga,
   TaigaUpstreamError,
 } from '../session/sessionService.js';
-import { getMcpEndpointUrl } from '../http/urls.js';
+import { getMcpEndpointUrl, getOAuthSubmitUrl } from '../http/urls.js';
 
 interface PendingAuthorization {
   id: string;
@@ -125,6 +125,7 @@ export class TaigaOAuthProvider implements OAuthServerProvider {
     const clientName = pending.client.client_name ?? pending.client.client_id;
     const redirectUri = pending.params.redirectUri;
     const scopes = pending.params.scopes?.length ? pending.params.scopes.join(' ') : 'mcp';
+    const submitUrl = getOAuthSubmitUrl(this.config.mcpServerUrl);
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -178,7 +179,7 @@ export class TaigaOAuthProvider implements OAuthServerProvider {
       <div><strong>Redirect</strong> ${escapeHtml(redirectUri)}</div>
       <div><strong>Scopes</strong> ${escapeHtml(scopes)}</div>
     </div>
-    <form method="post" action="/authorize/submit">
+    <form method="post" action="${escapeHtml(submitUrl)}">
       <input type="hidden" name="request_id" value="${escapeHtml(pending.id)}">
       <div class="field">
         <label for="username">Username or email</label>

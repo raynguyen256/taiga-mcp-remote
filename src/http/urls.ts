@@ -11,3 +11,7 @@ export function getMcpEndpointUrl(baseUrl: string): string {
 export function getAuthLoginUrl(baseUrl: string): string {
   return buildPublicUrl(baseUrl, '/auth/login');
 }
+
+export function getOAuthSubmitUrl(baseUrl: string): string {
+  return buildPublicUrl(baseUrl, '/oauth/authorize/submit');
+}
