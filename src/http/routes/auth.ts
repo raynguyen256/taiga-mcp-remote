@@ -1,11 +1,16 @@
 import { Router } from 'express';
-import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import type { InMemorySessionStore } from '../../session/sessionStore.js';
 import type { AppConfig } from '../../types/config.js';
-import type { TaigaAuthResponse } from '../../types/taiga.js';
-import { Cache } from '../../client/cache.js';
 import { createBearerAuth } from '../middleware/bearerAuth.js';
+import {
+  createAndStoreSession,
+  InvalidTaigaCredentialsError,
+  loginToTaiga,
+  refreshTaigaAccessToken,
+  TaigaUpstreamError,
+} from '../../session/sessionService.js';
+import { getMcpEndpointUrl } from '../urls.js';
 
 const LOGIN_PAGE = `<!DOCTYPE html>
 <html lang="en">
@@ -166,37 +171,37 @@ export function createAuthRouter(sessionStore: InMemorySessionStore, config: App
     }
 
     try {
-      const taigaRes = await axios.post<TaigaAuthResponse>(
-        `${config.baseUrl}/auth`,
-        { username, password, type: 'normal' },
-      );
-
-      const { auth_token, refresh } = taigaRes.data;
       const token = uuidv4();
       const now = Date.now();
       const expiresAt = now + config.sessionTtl * 1000;
+      const taigaAuth = await loginToTaiga(config, username, password);
 
-      sessionStore.set(token, {
+      createAndStoreSession(sessionStore, config, {
         token,
-        username: taigaRes.data.username,
-        taigaToken: auth_token,
-        taigaRefreshToken: refresh,
-        tokenCreatedAt: new Date(now).toISOString(),
+        username: taigaAuth.username,
+        taigaToken: taigaAuth.auth_token,
+        taigaRefreshToken: taigaAuth.refresh,
         expiresAt,
-        cache: new Cache(config.cacheTtl),
+        accessTokenExpiresAt: expiresAt,
+        scopes: ['mcp'],
+        resource: getMcpEndpointUrl(config.mcpServerUrl),
       });
 
       res.json({
         token,
         expires_at: new Date(expiresAt).toISOString(),
-        username: taigaRes.data.username,
+        username: taigaAuth.username,
       });
     } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 400) {
+      if (err instanceof InvalidTaigaCredentialsError) {
         res.status(401).json({ error: 'Invalid username or password' });
         return;
       }
-      res.status(502).json({ error: 'Failed to reach Taiga server' });
+      if (err instanceof TaigaUpstreamError) {
+        res.status(502).json({ error: 'Failed to reach Taiga server' });
+        return;
+      }
+      res.status(500).json({ error: 'Unexpected authentication error' });
     }
   });
 
@@ -204,14 +209,10 @@ export function createAuthRouter(sessionStore: InMemorySessionStore, config: App
     const session = req.userSession!;
 
     try {
-      const taigaRes = await axios.post<{ auth_token: string }>(
-        `${config.baseUrl}/auth/refresh`,
-        { refresh: session.taigaRefreshToken },
-      );
-
-      session.taigaToken = taigaRes.data.auth_token;
+      session.taigaToken = await refreshTaigaAccessToken(config, session.taigaRefreshToken);
       const newExpiresAt = Date.now() + config.sessionTtl * 1000;
       session.expiresAt = newExpiresAt;
+      session.accessTokenExpiresAt = newExpiresAt;
       session.tokenCreatedAt = new Date().toISOString();
       sessionStore.set(session.token, session);
 
@@ -236,7 +237,11 @@ export function createAuthRouter(sessionStore: InMemorySessionStore, config: App
       authenticated: true,
       username: session.username,
       token_created_at: session.tokenCreatedAt,
-      expires_at: new Date(session.expiresAt).toISOString(),
+      expires_at: new Date(session.accessTokenExpiresAt ?? session.expiresAt).toISOString(),
+      session_expires_at:
+        session.accessTokenExpiresAt && session.accessTokenExpiresAt !== session.expiresAt
+          ? new Date(session.expiresAt).toISOString()
+          : undefined,
     });
   });
 

@@ -1,7 +1,7 @@
-import axios from 'axios';
 import type { UserSession } from '../session/types.js';
 import type { InMemorySessionStore } from '../session/sessionStore.js';
 import type { AppConfig } from '../types/config.js';
+import { refreshTaigaAccessToken } from '../session/sessionService.js';
 
 export class SessionAuthManager {
   constructor(
@@ -15,11 +15,10 @@ export class SessionAuthManager {
   }
 
   async refresh(): Promise<void> {
-    const response = await axios.post<{ auth_token: string }>(
-      `${this.config.baseUrl}/auth/refresh`,
-      { refresh: this.session.taigaRefreshToken },
+    this.session.taigaToken = await refreshTaigaAccessToken(
+      this.config,
+      this.session.taigaRefreshToken,
     );
-    this.session.taigaToken = response.data.auth_token;
     this.store.set(this.session.token, this.session);
   }
 
@@ -32,12 +31,18 @@ export class SessionAuthManager {
     username: string;
     tokenCreatedAt: string;
     expiresAt: string;
+    sessionExpiresAt?: string;
   } {
+    const accessTokenExpiresAt = this.session.accessTokenExpiresAt ?? this.session.expiresAt;
     return {
       authenticated: true,
       username: this.session.username,
       tokenCreatedAt: this.session.tokenCreatedAt,
-      expiresAt: new Date(this.session.expiresAt).toISOString(),
+      expiresAt: new Date(accessTokenExpiresAt).toISOString(),
+      sessionExpiresAt:
+        accessTokenExpiresAt === this.session.expiresAt
+          ? undefined
+          : new Date(this.session.expiresAt).toISOString(),
     };
   }
 }

@@ -6,6 +6,7 @@ export interface AppConfig {
   maxRetries: number;
   port: number;
   sessionTtl: number;
+  oauthAccessTokenTtl: number;
   mcpServerUrl: string;
   corsOrigins: string[];
   bootstrapToken?: string;
@@ -14,8 +15,11 @@ export interface AppConfig {
 }
 
 export function loadAppConfig(): AppConfig {
-  const baseUrl = process.env.TAIGA_BASE_URL;
-  if (!baseUrl) throw new Error('TAIGA_BASE_URL environment variable is required');
+  const baseUrl = process.env.TAIGA_BASE_URL ?? 'https://taiga.enosta.com/api/v1';
+  const publicServerUrl =
+    process.env.MCP_SERVER_URL ??
+    process.env.RENDER_EXTERNAL_URL ??
+    'http://localhost:3000';
 
   const corsRaw = process.env.CORS_ORIGINS ?? '*';
   const corsOrigins = corsRaw === '*' ? ['*'] : corsRaw.split(',').map(s => s.trim());
@@ -28,7 +32,8 @@ export function loadAppConfig(): AppConfig {
     maxRetries: parseInt(process.env.TAIGA_MAX_RETRIES ?? '3', 10),
     port: parseInt(process.env.PORT ?? '3000', 10),
     sessionTtl: parseInt(process.env.SESSION_TTL ?? '86400', 10),
-    mcpServerUrl: process.env.MCP_SERVER_URL ?? 'http://localhost:3000',
+    oauthAccessTokenTtl: parseInt(process.env.OAUTH_ACCESS_TOKEN_TTL ?? '3600', 10),
+    mcpServerUrl: publicServerUrl.replace(/\/$/, ''),
     corsOrigins,
     bootstrapToken: process.env.TAIGA_BOOTSTRAP_TOKEN,
     taigaUsername: process.env.TAIGA_USERNAME,

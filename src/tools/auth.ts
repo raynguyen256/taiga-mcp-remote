@@ -53,7 +53,7 @@ export function registerAuthTools(
 
   server.tool(
     'taiga_login',
-    'Returns current session info. To create a new session, use POST /auth/login with username and password.',
+    'Returns current session info. New sessions can be created either through the MCP OAuth flow or via POST /auth/login for legacy manual tokens.',
     {},
     async () => {
       try {
@@ -62,7 +62,7 @@ export function registerAuthTools(
           content: [
             {
               type: 'text' as const,
-              text: `Already authenticated as "${status.username}". Session expires at ${status.expiresAt}.\n\nTo login as a different user, use POST /auth/login endpoint with your credentials.`,
+              text: `Already authenticated as "${status.username}". Access token expires at ${status.expiresAt}.\n\nOAuth-capable MCP clients should use the standard authorization flow. For manual token mode, use POST /auth/login with your Taiga credentials.`,
             },
           ],
         };

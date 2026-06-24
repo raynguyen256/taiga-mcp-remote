@@ -9,6 +9,7 @@ A remote [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server 
 - [Architecture Overview](#architecture-overview)
 - [Prerequisites](#prerequisites)
 - [Quick Start with Docker](#quick-start-with-docker)
+- [Deploy on Render](#deploy-on-render)
 - [Manual Installation](#manual-installation)
 - [Environment Variables](#environment-variables)
 - [Authentication Modes](#authentication-modes)
@@ -22,14 +23,14 @@ A remote [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server 
 
 ```
 MCP Client (e.g. LibreChat, Claude)
-        │  Bearer <session-token>
+        │  OAuth 2.1 / Bearer <access-token>
         ▼
 ┌─────────────────────────────┐
 │   Taiga Remote MCP Server   │
 │   (this repo, port 3000)    │
 │                             │
-│  /auth/login  ─► issues     │
-│  /auth/logout ─► tasks      │
+│  /authorize   ─► Taiga login│
+│  /token       ─► OAuth token│
 │  /mcp         ─► sprints …  │
 └──────────┬──────────────────┘
            │  Taiga REST API calls
@@ -37,7 +38,7 @@ MCP Client (e.g. LibreChat, Claude)
     Taiga Backend Server
 ```
 
-Each user logs in once via the `/auth/login` page and receives a personal session token (UUID). That token is used as the Bearer token for all MCP requests.
+OAuth-capable MCP clients can now discover this server, open the authorization flow, let each user sign in with their own Taiga account, and receive a per-user Bearer access token automatically. The legacy `/auth/login` page still exists for manual token workflows.
 
 ---
 
@@ -70,7 +71,7 @@ cp .env.example .env
 Open `.env` and fill in **at minimum**:
 
 ```
-TAIGA_BASE_URL=https://your-taiga-domain.com/api/v1
+TAIGA_BASE_URL=https://taiga.enosta.com/api/v1
 MCP_SERVER_URL=https://your-mcp-server-domain.com
 PORT=3000
 ```
@@ -84,6 +85,67 @@ docker-compose up -d
 ```
 
 The server will be available at `http://localhost:3000` (or the port you set).
+
+---
+
+## Deploy on Render
+
+This repo includes a [`render.yaml`](./render.yaml) Blueprint for a single free web service on Render.
+
+### 1. Push the repository to GitHub/GitLab
+
+Render creates Blueprint services from a Git repository, so make sure this repo is pushed first.
+
+### 2. Create a new Blueprint service
+
+1. In Render, click **New** → **Blueprint**.
+2. Connect the repository that contains this project.
+3. Render will detect `render.yaml` and propose a web service named `taiga-mcp-remote`.
+4. Review the region before creation. The Blueprint defaults to `singapore`; change it if your Taiga server or users are closer to another Render region.
+
+### 3. Fill in the required environment variable
+
+Render will prompt you for:
+
+- `TAIGA_BASE_URL` — for example `https://taiga.example.com/api/v1`
+
+The Blueprint also preconfigures:
+
+- `PORT=3000`
+- `CORS_ORIGINS=*`
+- sensible defaults for session TTL, OAuth token TTL, cache TTL, request timeout, and retry count
+
+### 4. Deploy
+
+Finish the Blueprint setup and wait for the first deploy to complete.
+
+When deployed on Render, the server automatically uses Render's default public URL (`RENDER_EXTERNAL_URL`) as `MCP_SERVER_URL` if you did not set `MCP_SERVER_URL` manually.
+
+This means the first deploy works without needing to know the final `onrender.com` URL in advance.
+
+### 5. Verify the service
+
+Open:
+
+- `https://<your-service>.onrender.com/health`
+- `https://<your-service>.onrender.com/.well-known/oauth-protected-resource/mcp`
+- `https://<your-service>.onrender.com/auth/login`
+
+If `/health` returns JSON and the `.well-known` endpoint loads, the MCP server is ready to test.
+
+### Optional: use a custom domain
+
+If you later attach a custom domain in Render, explicitly set:
+
+```bash
+MCP_SERVER_URL=https://your-custom-domain.com
+```
+
+Otherwise the server will keep advertising the default `onrender.com` URL in OAuth metadata.
+
+### Important free-tier note
+
+This project currently keeps sessions in memory only. If the Render free instance sleeps or restarts, active MCP/login sessions are lost and users need to authenticate again.
 
 ---
 
@@ -132,14 +194,14 @@ Copy `.env.example` to `.env` and configure the values below. **Never commit you
 
 | Variable | Example | Description |
 |---|---|---|
-| `TAIGA_BASE_URL` | `https://taiga.example.com/api/v1` | Full URL to your Taiga REST API. No trailing slash. |
+| `TAIGA_BASE_URL` | `https://taiga.enosta.com/api/v1` | Full URL to your Taiga REST API. No trailing slash. |
 
 ### Server
 
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3000` | TCP port the HTTP server listens on. |
-| `MCP_SERVER_URL` | `http://localhost:3000` | Public-facing URL of this MCP server. Used in OAuth metadata responses and logs. Must be reachable by MCP clients. |
+| `MCP_SERVER_URL` | `http://localhost:3000` | Public-facing URL of this MCP server. Used in OAuth metadata responses and logs. Must be reachable by MCP clients. On Render, if unset, the server falls back to `RENDER_EXTERNAL_URL`. |
 | `CORS_ORIGINS` | `*` | Allowed CORS origins for browser-based clients. Use `*` to allow all, or a comma-separated list: `https://app1.com,https://app2.com`. |
 
 ### Session
@@ -147,6 +209,7 @@ Copy `.env.example` to `.env` and configure the values below. **Never commit you
 | Variable | Default | Description |
 |---|---|---|
 | `SESSION_TTL` | `86400` | How long (in seconds) a user session stays valid after login. `86400` = 24 hours. After expiry the user must log in again. |
+| `OAUTH_ACCESS_TOKEN_TTL` | `3600` | OAuth access token lifetime in seconds. Refresh tokens remain usable until `SESSION_TTL` is reached. |
 
 ### Performance & Reliability
 
@@ -177,11 +240,19 @@ Copy `.env.example` to `.env` and configure the values below. **Never commit you
 
 The default mode. No credentials in `.env` required.
 
-1. Each user opens `https://your-mcp-server-domain.com/auth/login` in a browser.
-2. They enter their own Taiga username and password.
-3. They receive a personal session token (UUID).
-4. They paste the token into their MCP client as the Bearer token.
-5. The session expires after `SESSION_TTL` seconds (default 24 hours). Users can refresh via `POST /auth/refresh` or log in again.
+1. The MCP client discovers `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-authorization-server`.
+2. The client opens `GET /authorize` in the user’s browser.
+3. The user signs in with their own Taiga username/email and password.
+4. The server returns an OAuth access token for `/mcp` plus a refresh token.
+5. The access token expires after `OAUTH_ACCESS_TOKEN_TTL` seconds and the refresh token remains valid until `SESSION_TTL` is reached.
+
+### Legacy Manual Token Mode
+
+Still available for clients that do not support MCP OAuth yet.
+
+1. Open `https://your-mcp-server-domain.com/auth/login`.
+2. Enter Taiga credentials.
+3. Copy the returned session token and configure it manually as `Authorization: Bearer <token>`.
 
 ### Mode 2 — Bootstrap (single-user / AI assistant)
 
@@ -199,7 +270,7 @@ Useful when one shared Taiga account drives an AI assistant or automated pipelin
 
 ### LibreChat
 
-In `librechat.yaml`, add an MCP server entry:
+If your client does not support MCP OAuth yet, use a manual Bearer token from `/auth/login`:
 
 ```yaml
 mcpServers:
@@ -228,19 +299,27 @@ In your MCP config, set:
 
 Replace `<your-session-token>` with the token you received from `/auth/login`.
 
+For OAuth-aware MCP clients, point them at `https://your-mcp-server-domain.com/mcp` and let discovery/authorization run automatically.
+
 ---
 
 ## API Endpoints
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
+| `GET` | `/authorize` | OAuth client | Start OAuth authorization code flow for `/mcp`. |
+| `POST` | `/authorize/submit` | Browser form | Submit Taiga credentials for the current OAuth authorization request. |
+| `POST` | `/token` | OAuth client | Exchange authorization code or refresh token for an access token. |
+| `POST` | `/register` | OAuth client | Dynamic OAuth client registration endpoint. |
+| `GET` | `/.well-known/oauth-protected-resource/mcp` | — | OAuth 2.0 protected resource metadata for the MCP endpoint. |
+| `GET` | `/.well-known/oauth-authorization-server` | — | OAuth 2.0 authorization server metadata. |
 | `GET` | `/auth/login` | — | Web login page — opens in a browser to get a token. |
 | `POST` | `/auth/login` | — | JSON login: `{ "username": "...", "password": "..." }` → returns `{ token, expires_at, username }`. |
 | `POST` | `/auth/refresh` | Bearer | Extend the current session and get a refreshed expiry. |
 | `DELETE` | `/auth/logout` | Bearer | Invalidate the current session token. |
 | `GET` | `/auth/status` | Bearer | Check if the current token is valid and see its expiry. |
 | `POST` | `/mcp` | Bearer | Main MCP endpoint — all tool calls go here. |
-| `GET` | `/.well-known/oauth-protected-resource` | — | OAuth 2.0 protected resource metadata. |
+| `GET` | `/.well-known/oauth-protected-resource` | — | Legacy metadata alias kept for compatibility. |
 
 ---
 

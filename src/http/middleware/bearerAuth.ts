@@ -11,7 +11,12 @@ declare global {
 }
 
 export function createBearerAuth(sessionStore: InMemorySessionStore) {
-  return function bearerAuth(req: Request, res: Response, next: NextFunction): void {
+  return function bearerAuth(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): void {
+    const allowExpiredAccessToken = req.path === '/refresh';
     const authHeader = req.headers['authorization'];
     if (!authHeader?.startsWith('Bearer ')) {
       res.status(401).json({ error: 'Missing Bearer token' });
@@ -22,6 +27,12 @@ export function createBearerAuth(sessionStore: InMemorySessionStore) {
     const session = sessionStore.get(token);
 
     if (!session) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
+
+    const accessTokenExpiresAt = session.accessTokenExpiresAt ?? session.expiresAt;
+    if (!allowExpiredAccessToken && accessTokenExpiresAt < Date.now()) {
       res.status(401).json({ error: 'Invalid or expired token' });
       return;
     }

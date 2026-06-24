@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: taiga-mcp-remote
+    runtime: docker
+    plan: free
+    region: singapore
+    autoDeployTrigger: commit
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: TAIGA_BASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: SESSION_TTL
+        value: "86400"
+      - key: OAUTH_ACCESS_TOKEN_TTL
+        value: "3600"
+      - key: TAIGA_CACHE_TTL
+        value: "300"
+      - key: TAIGA_REQUEST_TIMEOUT
+        value: "30000"
+      - key: TAIGA_MAX_RETRIES
+        value: "3"
+      - key: TAIGA_TOKEN_REFRESH_THRESHOLD
+        value: "72000"

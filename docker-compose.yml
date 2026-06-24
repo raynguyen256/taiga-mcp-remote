@@ -5,7 +5,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - TAIGA_BASE_URL=https://your-taiga-domain.com/api/v1
+      - TAIGA_BASE_URL=https://taiga.enosta.com/api/v1
       - PORT=3000
       - SESSION_TTL=86400
       - MCP_SERVER_URL=https://your-domain.com

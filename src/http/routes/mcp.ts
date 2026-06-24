@@ -1,12 +1,15 @@
 import { Router, type Request, type Response } from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
+import { getOAuthProtectedResourceMetadataUrl } from '@modelcontextprotocol/sdk/server/auth/router.js';
 import type { InMemorySessionStore } from '../../session/sessionStore.js';
 import type { AppConfig } from '../../types/config.js';
 import { SessionAuthManager } from '../../client/SessionAuthManager.js';
 import { TaigaClient } from '../../client/TaigaClient.js';
 import { createServer } from '../../server.js';
-import { createBearerAuth } from '../middleware/bearerAuth.js';
 import type { UserSession } from '../../session/types.js';
+import type { TaigaOAuthProvider } from '../../oauth/TaigaOAuthProvider.js';
+import { getMcpEndpointUrl } from '../urls.js';
 
 async function handleMcpRequest(
   session: UserSession,
@@ -28,13 +31,29 @@ async function handleMcpRequest(
   await transport.handleRequest(req, res, body);
 }
 
-export function createMcpRouter(sessionStore: InMemorySessionStore, config: AppConfig): Router {
+export function createMcpRouter(
+  sessionStore: InMemorySessionStore,
+  config: AppConfig,
+  oauthProvider: TaigaOAuthProvider,
+): Router {
   const router = Router();
-  const bearerAuth = createBearerAuth(sessionStore);
+  const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(
+    new URL(getMcpEndpointUrl(config.mcpServerUrl)),
+  );
+  const bearerAuth = requireBearerAuth({
+    verifier: oauthProvider,
+    requiredScopes: ['mcp'],
+    resourceMetadataUrl,
+  });
 
   router.post('/', bearerAuth, async (req, res) => {
     try {
-      await handleMcpRequest(req.userSession!, sessionStore, config, req, res, req.body);
+      const session = sessionStore.get(req.auth!.token);
+      if (!session) {
+        res.status(401).json({ error: 'Invalid or expired token' });
+        return;
+      }
+      await handleMcpRequest(session, sessionStore, config, req, res, req.body);
     } catch (err) {
       console.error('[MCP] POST error:', (err as Error).stack ?? (err as Error).message);
       if (!res.headersSent) {
@@ -45,7 +64,12 @@ export function createMcpRouter(sessionStore: InMemorySessionStore, config: AppC
 
   router.get('/', bearerAuth, async (req, res) => {
     try {
-      await handleMcpRequest(req.userSession!, sessionStore, config, req, res);
+      const session = sessionStore.get(req.auth!.token);
+      if (!session) {
+        res.status(401).json({ error: 'Invalid or expired token' });
+        return;
+      }
+      await handleMcpRequest(session, sessionStore, config, req, res);
     } catch (err) {
       console.error('[MCP] GET error:', (err as Error).stack ?? (err as Error).message);
       if (!res.headersSent) {
@@ -56,7 +80,12 @@ export function createMcpRouter(sessionStore: InMemorySessionStore, config: AppC
 
   router.delete('/', bearerAuth, async (req, res) => {
     try {
-      await handleMcpRequest(req.userSession!, sessionStore, config, req, res);
+      const session = sessionStore.get(req.auth!.token);
+      if (!session) {
+        res.status(401).json({ error: 'Invalid or expired token' });
+        return;
+      }
+      await handleMcpRequest(session, sessionStore, config, req, res);
     } catch (err) {
       console.error('[MCP] DELETE error:', (err as Error).stack ?? (err as Error).message);
       if (!res.headersSent) {
