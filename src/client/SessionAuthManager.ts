@@ -1,12 +1,12 @@
 import type { UserSession } from '../session/types.js';
-import type { InMemorySessionStore } from '../session/sessionStore.js';
+import type { SessionStore } from '../session/sessionStore.js';
 import type { AppConfig } from '../types/config.js';
 import { refreshTaigaAccessToken } from '../session/sessionService.js';
 
 export class SessionAuthManager {
   constructor(
     private session: UserSession,
-    private store: InMemorySessionStore,
+    private store: SessionStore,
     private config: AppConfig,
   ) {}
 

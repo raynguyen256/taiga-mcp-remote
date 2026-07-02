@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import type { InMemorySessionStore } from '../../session/sessionStore.js';
+import type { SessionStore } from '../../session/sessionStore.js';
 import type { AppConfig } from '../../types/config.js';
 import { createBearerAuth } from '../middleware/bearerAuth.js';
 import {
@@ -153,7 +153,7 @@ const LOGIN_PAGE = `<!DOCTYPE html>
 </body>
 </html>`;
 
-export function createAuthRouter(sessionStore: InMemorySessionStore, config: AppConfig): Router {
+export function createAuthRouter(sessionStore: SessionStore, config: AppConfig): Router {
   const router = Router();
   const bearerAuth = createBearerAuth(sessionStore);
 

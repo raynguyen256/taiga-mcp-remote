@@ -1,10 +1,10 @@
-import type { InMemorySessionStore } from './sessionStore.js';
+import type { SessionStore } from './sessionStore.js';
 import type { AppConfig } from '../types/config.js';
 import { createAndStoreSession, loginToTaiga, refreshTaigaAccessToken } from './sessionService.js';
 import { getMcpEndpointUrl } from '../http/urls.js';
 
 export async function bootstrapSession(
-  sessionStore: InMemorySessionStore,
+  sessionStore: SessionStore,
   config: AppConfig,
 ): Promise<void> {
   const { bootstrapToken, taigaUsername, taigaPassword } = config;

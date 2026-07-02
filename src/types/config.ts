@@ -9,6 +9,7 @@ export interface AppConfig {
   oauthAccessTokenTtl: number;
   mcpServerUrl: string;
   corsOrigins: string[];
+  sessionStorePath: string;
   bootstrapToken?: string;
   taigaUsername?: string;
   taigaPassword?: string;
@@ -35,6 +36,7 @@ export function loadAppConfig(): AppConfig {
     oauthAccessTokenTtl: parseInt(process.env.OAUTH_ACCESS_TOKEN_TTL ?? '3600', 10),
     mcpServerUrl: publicServerUrl.replace(/\/$/, ''),
     corsOrigins,
+    sessionStorePath: process.env.SESSION_STORE_PATH ?? './data/sessions.json',
     bootstrapToken: process.env.TAIGA_BOOTSTRAP_TOKEN,
     taigaUsername: process.env.TAIGA_USERNAME,
     taigaPassword: process.env.TAIGA_PASSWORD,

@@ -16,7 +16,7 @@ import type {
   OAuthTokenRevocationRequest,
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
-import type { InMemorySessionStore } from '../session/sessionStore.js';
+import type { SessionStore } from '../session/sessionStore.js';
 import type { UserSession } from '../session/types.js';
 import type { AppConfig } from '../types/config.js';
 import {
@@ -84,7 +84,7 @@ export class TaigaOAuthProvider implements OAuthServerProvider {
   private refreshTokens = new Map<string, string>();
 
   constructor(
-    private sessionStore: InMemorySessionStore,
+    private sessionStore: SessionStore,
     private config: AppConfig,
   ) {}
 

@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
 import { getOAuthProtectedResourceMetadataUrl } from '@modelcontextprotocol/sdk/server/auth/router.js';
-import type { InMemorySessionStore } from '../../session/sessionStore.js';
+import type { SessionStore } from '../../session/sessionStore.js';
 import type { AppConfig } from '../../types/config.js';
 import { SessionAuthManager } from '../../client/SessionAuthManager.js';
 import { TaigaClient } from '../../client/TaigaClient.js';
@@ -13,7 +13,7 @@ import { getMcpEndpointUrl } from '../urls.js';
 
 async function handleMcpRequest(
   session: UserSession,
-  sessionStore: InMemorySessionStore,
+  sessionStore: SessionStore,
   config: AppConfig,
   req: Request,
   res: Response,
@@ -32,7 +32,7 @@ async function handleMcpRequest(
 }
 
 export function createMcpRouter(
-  sessionStore: InMemorySessionStore,
+  sessionStore: SessionStore,
   config: AppConfig,
   oauthProvider: TaigaOAuthProvider,
 ): Router {

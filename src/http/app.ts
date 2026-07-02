@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js';
-import { InMemorySessionStore } from '../session/sessionStore.js';
+import { FileSessionStore } from '../session/fileSessionStore.js';
 import { bootstrapSession } from '../session/bootstrap.js';
 import type { AppConfig } from '../types/config.js';
 import { createAuthRouter } from './routes/auth.js';
@@ -13,7 +13,7 @@ import { getAuthLoginUrl, getMcpEndpointUrl } from './urls.js';
 
 export function createApp(config: AppConfig) {
   const app = express();
-  const sessionStore = new InMemorySessionStore();
+  const sessionStore = new FileSessionStore(config.sessionStorePath);
   const oauthProvider = new TaigaOAuthProvider(sessionStore, config);
   sessionStore.startCleanup();
   oauthProvider.startCleanup();

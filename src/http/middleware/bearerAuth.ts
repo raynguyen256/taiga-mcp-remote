@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import type { InMemorySessionStore } from '../../session/sessionStore.js';
+import type { SessionStore } from '../../session/sessionStore.js';
 import type { UserSession } from '../../session/types.js';
 
 declare global {
@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-export function createBearerAuth(sessionStore: InMemorySessionStore) {
+export function createBearerAuth(sessionStore: SessionStore) {
   return function bearerAuth(
     req: Request,
     res: Response,

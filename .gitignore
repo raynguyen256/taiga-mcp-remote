@@ -29,3 +29,6 @@ logs/
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Session data (persisted at runtime, must not be overwritten by deploys)
+data/

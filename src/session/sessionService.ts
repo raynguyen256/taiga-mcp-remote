@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Cache } from '../client/cache.js';
 import type { AppConfig } from '../types/config.js';
 import type { TaigaAuthResponse, TaigaRefreshResponse } from '../types/taiga.js';
-import type { InMemorySessionStore } from './sessionStore.js';
+import type { SessionStore } from './sessionStore.js';
 import type { UserSession } from './types.js';
 
 export class InvalidTaigaCredentialsError extends Error {
@@ -89,7 +89,7 @@ export function createSession(config: AppConfig, options: CreateSessionOptions):
 }
 
 export function storeSession(
-  sessionStore: InMemorySessionStore,
+  sessionStore: SessionStore,
   session: UserSession,
 ): UserSession {
   sessionStore.set(session.token, session);
@@ -97,7 +97,7 @@ export function storeSession(
 }
 
 export function createAndStoreSession(
-  sessionStore: InMemorySessionStore,
+  sessionStore: SessionStore,
   config: AppConfig,
   options: CreateSessionOptions,
 ): UserSession {

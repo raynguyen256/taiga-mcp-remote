@@ -1,6 +1,14 @@
 import type { UserSession } from './types.js';
 
-export class InMemorySessionStore {
+export interface SessionStore {
+  set(token: string, session: UserSession): void;
+  get(token: string): UserSession | undefined;
+  delete(token: string): void;
+  size(): number;
+  startCleanup(intervalMs?: number): void;
+}
+
+export class InMemorySessionStore implements SessionStore {
   private sessions = new Map<string, UserSession>();
 
   set(token: string, session: UserSession): void {
